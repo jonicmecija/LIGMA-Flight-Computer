@@ -18,6 +18,9 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_BMP280.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <Wire.h>
 
 #define BMP_SCK  (13)
 #define BMP_MISO (12)
@@ -27,6 +30,7 @@
 // Adafruit_BMP280 bmp; // I2C
 Adafruit_BMP280 bmp(BMP_CS); // hardware SPI
 //Adafruit_BMP280 bmp(BMP_CS, BMP_MOSI, BMP_MISO,  BMP_SCK);
+Adafruit_MPU6050 mpu;
 
 void setup() {
   Serial.begin(9600);
@@ -38,7 +42,30 @@ void setup() {
                       "try a different address!"));
     while (1) delay(10);
   }
+  while (!Serial)
+      delay(10); // will pause Zero, Leonardo, etc until serial console opens
 
+  Serial.println("Adafruit MPU6050 test!");
+
+  // Try to initialize!
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    while (1) {
+      delay(10);
+    }
+  }
+  Serial.println("MPU6050 Found!");
+
+  //setupt motion detection
+  mpu.setHighPassFilter(MPU6050_HIGHPASS_0_63_HZ);
+  mpu.setMotionDetectionThreshold(1);
+  mpu.setMotionDetectionDuration(20);
+  mpu.setInterruptPinLatch(true);	// Keep it latched.  Will turn off when reinitialized.
+  mpu.setInterruptPinPolarity(true);
+  mpu.setMotionInterrupt(true);
+
+  Serial.println("");
+  delay(100);
   /* Default settings from datasheet. */
   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
                   Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
@@ -48,19 +75,39 @@ void setup() {
 }
 
 void loop() {
-    Serial.print(F("Temperature = "));
-    Serial.print(bmp.readTemperature());
-    Serial.println(" *C");
+  /* BMP280 Sensor Readings */
+  Serial.print(F("Temperature = "));
+  Serial.print(bmp.readTemperature());
+  Serial.println(" *C");
+  Serial.print(F("Pressure = "));
+  Serial.print(bmp.readPressure());
+  Serial.println(" Pa");
+  Serial.print(F("Approx altitude = "));
+  Serial.print(bmp.readAltitude(1013.25)); /* Adjusted to local forecast! */
+  Serial.println(" m");
+  Serial.println();
 
-    Serial.print(F("Pressure = "));
-    Serial.print(bmp.readPressure());
-    Serial.println(" Pa");
+  /* MPU6050 Sensor Readings */
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
 
-    Serial.print(F("Approx altitude = "));
-    Serial.print(bmp.readAltitude(1013.25)); /* Adjusted to local forecast! */
-    Serial.println(" m");
-
-    Serial.println();
-    delay(2000);
+  Serial.print("AccelX:");
+  Serial.print(a.acceleration.x);
+  Serial.print(",");
+  Serial.print("AccelY:");
+  Serial.print(a.acceleration.y);
+  Serial.print(",");
+  Serial.print("AccelZ:");
+  Serial.print(a.acceleration.z);
+  Serial.print(", ");
+  Serial.print("GyroX:");
+  Serial.print(g.gyro.x);
+  Serial.print(",");
+  Serial.print("GyroY:");
+  Serial.print(g.gyro.y);
+  Serial.print(",");
+  Serial.print("GyroZ:");
+  Serial.print(g.gyro.z);
+  Serial.println("");
+  delay(2000);
 }
-
