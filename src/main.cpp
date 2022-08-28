@@ -36,6 +36,11 @@ Adafruit_BMP280 bmp(BMP_CS); // hardware SPI
 float curr_altitude = 0;
 float initial_altitude = 0;
 
+// time variables 
+unsigned long prev_millis = 0;
+unsigned long curr_millis = 0;
+int interval = 0;
+
 void setup() {
   Serial.begin(9600);
   Serial.println("Program start");
@@ -60,6 +65,12 @@ void setup() {
 }
 
 void loop() {
+  curr_millis = millis();
+  if ( curr_millis - prev_millis > 1000){
+    prev_millis = curr_millis;
+    Serial.print("Current milliseconds: ");
+    Serial.println(curr_millis);
+  
   switch(curr_state){
     case Rocket_States::IDLE_STATE:
       Serial.println("idle state");
@@ -83,7 +94,7 @@ void loop() {
     case Rocket_States::ASCENT_STATE:
       Serial.println("ascent state");
       // if rocket is descending, change state
-      curr_state = Rocket_States::DESCENT_STATE;
+      // curr_state = Rocket_States::DESCENT_STATE;
       break;
       
     case Rocket_States::DESCENT_STATE:
@@ -108,6 +119,6 @@ void loop() {
   curr_altitude = bmp.readAltitude(1013.25);
   // Serial.println(" m");
   // Serial.println();
-
-  delay(500);
+  }
+  // delay(500);
 }
