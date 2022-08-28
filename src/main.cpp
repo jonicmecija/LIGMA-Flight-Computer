@@ -20,7 +20,7 @@
 #define BMP_MOSI (11)
 #define BMP_CS   (10)
 
-enum Rocket_States
+enum RocketStates
 {
   IDLE_STATE,
   ASCENT_STATE,
@@ -29,16 +29,16 @@ enum Rocket_States
 };
 
 // Initial state set to IDLE_STATE
-Rocket_States curr_state = IDLE_STATE;
+RocketStates currState = IDLE_STATE;
 Adafruit_BMP280 bmp(BMP_CS); // hardware SPI
 
 // set global variable to keep track of altitude
-float curr_altitude = 0;
-float initial_altitude = 0;
+float currAltitude = 0;
+float initialAltitude = 0;
 
 // time variables 
-unsigned long prev_millis = 0;
-unsigned long curr_millis = 0;
+unsigned long prevMillis = 0;
+unsigned long currMillis = 0;
 int interval = 0;
 
 void setup() {
@@ -60,51 +60,51 @@ void setup() {
                   Adafruit_BMP280::FILTER_X16,      /* Filtering. */
                   Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
   
-  initial_altitude = bmp.readAltitude(1013.25);
-  curr_altitude = initial_altitude;
+  initialAltitude = bmp.readAltitude(1013.25);
+  currAltitude = initialAltitude;
 }
 
 void loop() {
-  curr_millis = millis();
-  if ( curr_millis - prev_millis > 1000){
-    prev_millis = curr_millis;
+  currMillis = millis();
+  if ( currMillis - prevMillis > 1000){
+    prevMillis = currMillis;
     Serial.print("Current milliseconds: ");
-    Serial.println(curr_millis);
+    Serial.println(currMillis);
   
-  switch(curr_state){
-    case Rocket_States::IDLE_STATE:
+  switch(currState){
+    case RocketStates::IDLE_STATE:
       Serial.println("idle state");
       
       Serial.print("Current Altitude: ");
-      Serial.print(curr_altitude);
+      Serial.print(currAltitude);
       Serial.println(" m");
 
       Serial.print("Initial Altitude: ");
-      Serial.print(initial_altitude);
+      Serial.print(initialAltitude);
       Serial.println(" m");
       Serial.println(" ");
 
       // if change in z axis altimeter has changed dramatically, change state
-      if (curr_altitude - initial_altitude > 0.3){
+      if (currAltitude - initialAltitude > 0.3){
         Serial.println("Launch detected. Changing state.");
-        curr_state = Rocket_States::ASCENT_STATE;
+        currState = RocketStates::ASCENT_STATE;
       }
       break;
 
-    case Rocket_States::ASCENT_STATE:
+    case RocketStates::ASCENT_STATE:
       Serial.println("ascent state");
       // if rocket is descending, change state
-      // curr_state = Rocket_States::DESCENT_STATE;
+      // currState = Rocket_States::DESCENT_STATE;
       break;
       
-    case Rocket_States::DESCENT_STATE:
+    case RocketStates::DESCENT_STATE:
       Serial.println("descent state");
       // when rocket hits certain altitude, fire main parachute
-      // curr_state = Rocket_States::RECOVERY_STATE;
+      // currState = Rocket_States::RECOVERY_STATE;
       break;
-    case Rocket_States::RECOVERY_STATE:
+    case RocketStates::RECOVERY_STATE:
       Serial.println("recovery state");
-      // curr_state = Rocket_States::IDLE_STATE;
+      // currState = Rocket_States::IDLE_STATE;
       break;
   }
   /* BMP280 Sensor Readings */
@@ -116,7 +116,7 @@ void loop() {
   // Serial.println(" Pa");
   // Serial.print(F("Approx altitude = "));
   // Serial.print(bmp.readAltitude(1013.25)); /* Adjusted to local forecast! */
-  curr_altitude = bmp.readAltitude(1013.25);
+  currAltitude = bmp.readAltitude(1013.25);
   // Serial.println(" m");
   // Serial.println();
   }
