@@ -34,6 +34,7 @@ Adafruit_BMP280 bmp(BMP_CS); // hardware SPI
 
 // set global variable to keep track of altitude
 float currAltitude = 0;
+float prevAltitude = 0;
 float initialAltitude = 0;
 
 // time variables 
@@ -66,7 +67,7 @@ void setup() {
 
 void loop() {
   currMillis = millis();
-  if ( currMillis - prevMillis > 1000){
+  if ( currMillis - prevMillis > 500){
     prevMillis = currMillis;
     Serial.print("Current milliseconds: ");
     Serial.println(currMillis);
@@ -74,15 +75,6 @@ void loop() {
   switch(currState){
     case RocketStates::IDLE_STATE:
       Serial.println("idle state");
-      
-      Serial.print("Current Altitude: ");
-      Serial.print(currAltitude);
-      Serial.println(" m");
-
-      Serial.print("Initial Altitude: ");
-      Serial.print(initialAltitude);
-      Serial.println(" m");
-      Serial.println(" ");
 
       // if change in z axis altimeter has changed dramatically, change state
       if (currAltitude - initialAltitude > 0.3){
@@ -94,7 +86,15 @@ void loop() {
     case RocketStates::ASCENT_STATE:
       Serial.println("ascent state");
       // if rocket is descending, change state
-      // currState = Rocket_States::DESCENT_STATE;
+      // how to detect apogee:
+      // if greater than 400m and previous altitude is greater than current altitude (aka altitude no longer rising)
+      //  then deploy parachute and go next state
+      
+      if (currAltitude > initialAltitude + 0.2 && prevAltitude - currAltitude > 0.1){
+        Serial.println("Parachute deployed! Changing state.");
+        currState = RocketStates::DESCENT_STATE;
+      }
+      
       break;
       
     case RocketStates::DESCENT_STATE:
@@ -116,6 +116,26 @@ void loop() {
   // Serial.println(" Pa");
   // Serial.print(F("Approx altitude = "));
   // Serial.print(bmp.readAltitude(1013.25)); /* Adjusted to local forecast! */
+  
+  Serial.print("Initial Altitude: ");
+  Serial.print(initialAltitude);
+  Serial.println(" m");
+
+  Serial.print("Current Altitude: ");
+  Serial.print(currAltitude);
+  Serial.println(" m");
+
+  Serial.print("Previous Altitude: ");
+  Serial.print(prevAltitude);
+  Serial.println(" m");
+  Serial.println(" ");
+
+  unsigned long newPrevMillis = 0;
+      
+  if ( currMillis - newPrevMillis > 2000){
+    newPrevMillis = currMillis;
+    prevAltitude = currAltitude;
+  }
   currAltitude = bmp.readAltitude(1013.25);
   // Serial.println(" m");
   // Serial.println();
