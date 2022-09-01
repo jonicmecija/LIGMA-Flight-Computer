@@ -40,7 +40,9 @@ float initialAltitude = 0;
 // time variables 
 unsigned long prevMillis = 0;
 unsigned long currMillis = 0;
-int interval = 0;
+  unsigned long newPrevMillis = 0;
+
+int recoveryInterval = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -51,7 +53,6 @@ void setup() {
                       "try a different address!"));
     while (1) delay(10);
   }
-
   Serial.println("");
   delay(100);
   /* Default settings from datasheet. */
@@ -88,10 +89,10 @@ void loop() {
       // if rocket is descending, change state
       // how to detect apogee:
       // if greater than 400m and previous altitude is greater than current altitude (aka altitude no longer rising)
-      //  then deploy parachute and go next state
+      //  then deploy main parachute and go next state
       
       if (currAltitude > initialAltitude + 0.2 && prevAltitude - currAltitude > 0.1){
-        Serial.println("Parachute deployed! Changing state.");
+        Serial.println("Apogee detected! Parachute deployed! Changing state.");
         currState = RocketStates::DESCENT_STATE;
       }
       
@@ -99,9 +100,27 @@ void loop() {
       
     case RocketStates::DESCENT_STATE:
       Serial.println("descent state");
-      // when rocket hits certain altitude, fire main parachute
-      // currState = Rocket_States::RECOVERY_STATE;
+      // when rocket hits certain altitude, fire drogue parachute. for now, if rocket is staying still change to recovery mode
+      Serial.print("Recover counter: ");
+      Serial.println(recoveryInterval);
+      // if the counter gets to 5 in 5 seconds, and the altitude stays in a certain range, then enter recovery mode
+      int lowerAltitudeBound = initialAltitude - 0.5;
+      int upperAltitudeBound = initialAltitude + 0.5;
+
+      if(currAltitude <= upperAltitudeBound && currAltitude >= lowerAltitudeBound){
+        recoveryInterval++;
+      }
+
+      // if theres a change in altitude within this specific time window, reset the counter, 
+      if(recoveryInterval >= 5){
+        Serial.println("Landed! Changing state.");
+        currState = RocketStates::RECOVERY_STATE;
+      }
+      else{
+        recoveryInterval = 0;
+      }
       break;
+
     case RocketStates::RECOVERY_STATE:
       Serial.println("recovery state");
       // currState = Rocket_States::IDLE_STATE;
@@ -125,16 +144,17 @@ void loop() {
   Serial.print(currAltitude);
   Serial.println(" m");
 
-  Serial.print("Previous Altitude: ");
-  Serial.print(prevAltitude);
-  Serial.println(" m");
-  Serial.println(" ");
+  
 
-  unsigned long newPrevMillis = 0;
       
-  if ( currMillis - newPrevMillis > 2000){
+  if ( currMillis - newPrevMillis > 3000){
     newPrevMillis = currMillis;
     prevAltitude = currAltitude;
+
+    Serial.print("Previous Altitude: ");
+    Serial.print(prevAltitude);
+    Serial.println(" m");
+    Serial.println(" ");
   }
   currAltitude = bmp.readAltitude(1013.25);
   // Serial.println(" m");
