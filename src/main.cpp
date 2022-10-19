@@ -52,6 +52,7 @@ void setup(void)
   Serial.println("");
 
   bno.setExtCrystalUse(true);
+  bno.setMode(OPERATION_MODE_ACCGYRO);
 
   Serial.println("Calibration status values: 0=uncalibrated, 3=fully calibrated");
 }
@@ -71,16 +72,26 @@ void loop(void)
   // - VECTOR_EULER         - degrees
   // - VECTOR_LINEARACCEL   - m/s^2
   // - VECTOR_GRAVITY       - m/s^2
-  imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+  imu::Vector<3> accel = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
+  imu::Vector<3> gyro = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
 
   /* Display the floating point data */
   Serial.print("X: ");
-  Serial.print(euler.x());
+  Serial.print(gyro.x());
   Serial.print(" Y: ");
-  Serial.print(euler.y());
+  Serial.print(gyro.y());
   Serial.print(" Z: ");
-  Serial.print(euler.z());
-  Serial.print("\t\t");
+  Serial.print(gyro.z());
+  Serial.println("");
+
+  /* Display the floating point data */
+  // Serial.print("X: ");
+  // Serial.print(euler.x());
+  // Serial.print(" Y: ");
+  // Serial.print(euler.y());
+  // Serial.print(" Z: ");
+  // Serial.print(euler.z());
+  // Serial.print("\t\t");
 
   /*
   // Quaternion data
@@ -97,16 +108,16 @@ void loop(void)
   */
 
   /* Display calibration status for each sensor. */
-  uint8_t system, gyro, accel, mag = 0;
-  bno.getCalibration(&system, &gyro, &accel, &mag);
-  Serial.print("CALIBRATION: Sys=");
-  Serial.print(system, DEC);
-  Serial.print(" Gyro=");
-  Serial.print(gyro, DEC);
-  Serial.print(" Accel=");
-  Serial.print(accel, DEC);
-  Serial.print(" Mag=");
-  Serial.println(mag, DEC);
+  // uint8_t system, gyro, accel, mag = 0;
+  // bno.getCalibration(&system, &gyro, &accel, &mag);
+  // Serial.print("CALIBRATION: Sys=");
+  // Serial.print(system, DEC);
+  // Serial.print(" Gyro=");
+  // Serial.print(gyro, DEC);
+  // Serial.print(" Accel=");
+  // Serial.print(accel, DEC);
+  // Serial.print(" Mag=");
+  // Serial.println(mag, DEC);
 
   delay(BNO055_SAMPLERATE_DELAY_MS);
 }
