@@ -24,6 +24,12 @@
 //                                   id, address
 Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x28);
 
+float thetaG = 0;
+float phiG = 0;
+
+float dt = 0;
+unsigned long prevMillis;
+
 /**************************************************************************/
 /*
     Arduino setup function (automatically called at startup)
@@ -55,6 +61,8 @@ void setup(void)
   bno.setMode(OPERATION_MODE_ACCGYRO);
 
   Serial.println("Calibration status values: 0=uncalibrated, 3=fully calibrated");
+
+  prevMillis = millis();
 }
 
 /**************************************************************************/
@@ -72,16 +80,27 @@ void loop(void)
   // - VECTOR_EULER         - degrees
   // - VECTOR_LINEARACCEL   - m/s^2
   // - VECTOR_GRAVITY       - m/s^2
-  imu::Vector<3> accel = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
+  // imu::Vector<3> accel = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
   imu::Vector<3> gyro = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
 
+  dt = (millis() - prevMillis) / 1000.; // change to millis
+  prevMillis = millis();
+
+  thetaG = thetaG + gyro.y() * dt; // pitch
+  phiG = phiG + gyro.x() * dt; // roll
+
   /* Display the floating point data */
-  Serial.print("X: ");
-  Serial.print(gyro.x());
-  Serial.print(" Y: ");
   Serial.print(gyro.y());
-  Serial.print(" Z: ");
-  Serial.print(gyro.z());
+  Serial.print(",");
+  Serial.print(gyro.x());
+  // Serial.println("");
+  // Serial.print(gyro.z());
+  // Serial.println("");
+
+  Serial.print(",");
+  Serial.print(thetaG);
+  Serial.print(",");
+  Serial.print(phiG);
   Serial.println("");
 
   /* Display the floating point data */
