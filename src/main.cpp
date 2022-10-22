@@ -26,6 +26,8 @@ Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x28);
 
 float thetaG = 0;
 float phiG = 0;
+float thetaA = 0;
+float phiA = 0;
 
 float dt = 0;
 unsigned long prevMillis;
@@ -80,11 +82,14 @@ void loop(void)
   // - VECTOR_EULER         - degrees
   // - VECTOR_LINEARACCEL   - m/s^2
   // - VECTOR_GRAVITY       - m/s^2
-  // imu::Vector<3> accel = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
+  imu::Vector<3> accel = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
   imu::Vector<3> gyro = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
 
   dt = (millis() - prevMillis) / 1000.; // change to millis
   prevMillis = millis();
+
+  thetaA = atan2(accel.x()/9.8, accel.z()/9.8)/2/3.141592654*360; // pitch from acceleration vector
+  phiA = atan2(accel.y()/9.8, accel.z()/9.8)/2/3.141592654*360; // roll from acceleration vector
 
   thetaG = thetaG + gyro.y() * dt; // pitch
   phiG = phiG + gyro.x() * dt; // roll
@@ -93,14 +98,22 @@ void loop(void)
   Serial.print(gyro.y());
   Serial.print(",");
   Serial.print(gyro.x());
-  // Serial.println("");
-  // Serial.print(gyro.z());
-  // Serial.println("");
+  Serial.print(",");
+  Serial.print(accel.x()/9.8);
+  Serial.print(",");
+  Serial.print(accel.y()/9.8);
+  Serial.print(",");
+  Serial.print((accel.z()/9.8)-1);
 
   Serial.print(",");
   Serial.print(thetaG);
   Serial.print(",");
   Serial.print(phiG);
+
+  Serial.print(",");
+  Serial.print(thetaA);
+  Serial.print(",");
+  Serial.print(phiA+2);
   Serial.println("");
 
   /* Display the floating point data */
