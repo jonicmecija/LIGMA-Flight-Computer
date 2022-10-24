@@ -5,16 +5,13 @@
 
 /* This driver reads raw data from the BNO055
 
-   Connections
+   Connections for Teensy 4.1
    ===========
-   Connect SCL to analog 5
-   Connect SDA to analog 4
+   Connect SCL to pin 19
+   Connect SDA to pin 18
    Connect VDD to 3.3V DC
    Connect GROUND to common ground
 
-   History
-   =======
-   2015/MAR/03  - First release (KTOWN)
 */
 
 /* Set the delay between fresh samples */
@@ -28,6 +25,8 @@ float thetaG = 0;
 float phiG = 0;
 float thetaA = 0;
 float phiA = 0;
+float theta = 0;
+float phi = 0;
 
 float dt = 0;
 unsigned long prevMillis;
@@ -62,17 +61,11 @@ void setup(void)
   bno.setExtCrystalUse(true);
   bno.setMode(OPERATION_MODE_ACCGYRO);
 
-  Serial.println("Calibration status values: 0=uncalibrated, 3=fully calibrated");
+  // Serial.println("Calibration status values: 0=uncalibrated, 3=fully calibrated");
 
   prevMillis = millis();
 }
 
-/**************************************************************************/
-/*
-    Arduino loop function, called once 'setup' is complete (your own code
-    should go here)
-*/
-/**************************************************************************/
 void loop(void)
 {
   // Possible vector values can be:
@@ -82,20 +75,25 @@ void loop(void)
   // - VECTOR_EULER         - degrees
   // - VECTOR_LINEARACCEL   - m/s^2
   // - VECTOR_GRAVITY       - m/s^2
+
+  // grab raw accel and gyro values
   imu::Vector<3> accel = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
   imu::Vector<3> gyro = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
 
-  dt = (millis() - prevMillis) / 1000.; // change to millis
+  dt = (millis() - prevMillis) / 1000.0; // change to millis
   prevMillis = millis();
 
   thetaA = atan2(accel.x()/9.8, accel.z()/9.8)/2/3.141592654*360; // pitch from acceleration vector
-  phiA = atan2(accel.y()/9.8, accel.z()/9.8)/2/3.141592654*360; // roll from acceleration vector
+  phiA = atan2(accel.y()/9.8, accel.z()/9.8)/2/3.141592654*360;   // roll from acceleration vector
 
-  thetaG = thetaG + gyro.y() * dt; // pitch
-  phiG = phiG + gyro.x() * dt; // roll
+  thetaG = thetaG - gyro.y() * dt; // pitch from gyro vector
+  phiG = phiG + gyro.x() * dt;     // roll from gyro vector
+
+  theta = (theta -  gyro.y() * dt) * 0.90 + thetaA * 0.1;
+  phi = (phi + gyro.x() * dt) * 0.90 + phiA * 0.1;
 
   /* Display the floating point data */
-  Serial.print(gyro.y());
+  Serial.print(-gyro.y());
   Serial.print(",");
   Serial.print(gyro.x());
   Serial.print(",");
@@ -103,7 +101,7 @@ void loop(void)
   Serial.print(",");
   Serial.print(accel.y()/9.8);
   Serial.print(",");
-  Serial.print((accel.z()/9.8)-1);
+  Serial.print(accel.z()/9.8);
 
   Serial.print(",");
   Serial.print(thetaG);
@@ -113,31 +111,12 @@ void loop(void)
   Serial.print(",");
   Serial.print(thetaA);
   Serial.print(",");
-  Serial.print(phiA+2);
+  Serial.print(phiA);
+  Serial.print(",");
+  Serial.print(theta);
+  Serial.print(",");
+  Serial.print(phi);
   Serial.println("");
-
-  /* Display the floating point data */
-  // Serial.print("X: ");
-  // Serial.print(euler.x());
-  // Serial.print(" Y: ");
-  // Serial.print(euler.y());
-  // Serial.print(" Z: ");
-  // Serial.print(euler.z());
-  // Serial.print("\t\t");
-
-  /*
-  // Quaternion data
-  imu::Quaternion quat = bno.getQuat();
-  Serial.print("qW: ");
-  Serial.print(quat.w(), 4);
-  Serial.print(" qX: ");
-  Serial.print(quat.x(), 4);
-  Serial.print(" qY: ");
-  Serial.print(quat.y(), 4);
-  Serial.print(" qZ: ");
-  Serial.print(quat.z(), 4);
-  Serial.print("\t\t");
-  */
 
   /* Display calibration status for each sensor. */
   // uint8_t system, gyro, accel, mag = 0;
