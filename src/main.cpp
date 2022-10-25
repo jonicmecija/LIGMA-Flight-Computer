@@ -2,6 +2,7 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
+#include <StateMachine.h>
 
 /* This driver reads raw data from the BNO055
 
@@ -30,6 +31,7 @@ float phi = 0;
 
 float dt = 0;
 unsigned long prevMillis;
+States currState;
 
 /**************************************************************************/
 /*
@@ -60,6 +62,7 @@ void setup(void)
 
   bno.setExtCrystalUse(true);
   bno.setMode(OPERATION_MODE_ACCGYRO);
+  currState = States::IDLE;
 
   // Serial.println("Calibration status values: 0=uncalibrated, 3=fully calibrated");
 
@@ -68,6 +71,33 @@ void setup(void)
 
 void loop(void)
 {
+  switch(currState)
+  {
+    case States::IDLE:
+    {
+      // code
+      break;
+    }
+    case States::ASCENT:
+    {
+      // code
+      break;
+    }
+    case States::DESCENT:
+    {
+      // code
+      break;
+    }
+    case States::RECOVERY:
+    {
+      // code
+      break;
+    }
+    default:
+    {
+      break;
+    }
+  }
   // Possible vector values can be:
   // - VECTOR_ACCELEROMETER - m/s^2
   // - VECTOR_MAGNETOMETER  - uT
