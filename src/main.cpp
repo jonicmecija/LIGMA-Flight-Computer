@@ -57,6 +57,7 @@ bool detectLaunch(float currAltitude, float initialAltitude);
 bool detectApogee(float currAltitude, float prevAltitude);
 bool detectLanding(float currAltitude);
 void writeFile();
+void printData(Adafruit_BNO055* bno, Adafruit_BMP280* bmp);
 
 /**************************************************************************/
 /*
@@ -122,6 +123,43 @@ void loop(void)
   // - VECTOR_LINEARACCEL   - m/s^2
   // - VECTOR_GRAVITY       - m/s^2
 
+  printData(&bno, &bmp);
+  delay(BNO055_SAMPLERATE_DELAY_MS);
+
+  switch(currState)
+  {
+    case States::IDLE:
+    {
+      // need to read sensor information from BPM280 altitude
+      float fakeVal1, fakeVal2;
+      currState = (detectLaunch(fakeVal1, fakeVal2)) ? States::ASCENT : States::IDLE;
+      break;
+    }
+    case States::ASCENT:
+    {
+      float prevAltitude;
+      currState = (detectApogee(currAltitude, prevAltitude)) ? States::ASCENT : States::IDLE;
+      break;
+    }
+    case States::DESCENT:
+    {
+      detectLanding(currAltitude);
+      break;
+    }
+    case States::RECOVERY:
+    {
+      writeFile();      
+      break;
+    }
+    default:
+    {
+      break;
+    }
+  }
+
+}
+
+void printData(Adafruit_BNO055& bno, Adafruit_BMP280& bmp){
   // grab raw accel and gyro values
   imu::Vector<3> accel = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
   imu::Vector<3> gyro = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
@@ -190,42 +228,7 @@ void loop(void)
   Serial.println(" m");
 
   Serial.println();
-
-  delay(BNO055_SAMPLERATE_DELAY_MS);
-
-  switch(currState)
-  {
-    case States::IDLE:
-    {
-      // need to read sensor information from BPM280 altitude
-      float fakeVal1, fakeVal2;
-      currState = (detectLaunch(fakeVal1, fakeVal2)) ? States::ASCENT : States::IDLE;
-      break;
-    }
-    case States::ASCENT:
-    {
-      float prevAltitude;
-      currState = (detectApogee(currAltitude, prevAltitude)) ? States::ASCENT : States::IDLE;
-      break;
-    }
-    case States::DESCENT:
-    {
-      detectLanding(currAltitude);
-      break;
-    }
-    case States::RECOVERY:
-    {
-      writeFile();      
-      break;
-    }
-    default:
-    {
-      break;
-    }
-  }
-
 }
-
 bool detectLaunch(float currAltitude, float initialAltitude){
   // if passed 10 meter threshold, then rocket has launched
   if ((currAltitude - initialAltitude) > 10){
