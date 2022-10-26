@@ -2,25 +2,42 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
-#include <StateMachine.h>
+#include <Adafruit_BMP280.h>
+#include <Arduino.h>
+#include <SPI.h>
 
-/* This driver reads raw data from the BNO055
+/* BNO055 Connections for Teensy 4.1
 
-   Connections for Teensy 4.1
-   ===========
    Connect SCL to pin 19
    Connect SDA to pin 18
    Connect VDD to 3.3V DC
    Connect GROUND to common ground
-
 */
+
+enum States{
+  IDLE = 0,
+  ASCENT = 1,
+  DESCENT = 2,
+  RECOVERY = 3
+};
 
 /* Set the delay between fresh samples */
 #define BNO055_SAMPLERATE_DELAY_MS (100)
 
+/* BMP 280 SPI Connections */
+#define BMP_SCK  (13)
+#define BMP_MISO (12)
+#define BMP_MOSI (11)
+#define BMP_CS   (10)
+
 // Check I2C device address and correct line below (by default address is 0x29 or 0x28)
 //                                   id, address
 Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x28);
+
+
+// Adafruit_BMP280 bmp; // I2C
+// Adafruit_BMP280 bmp(BMP_CS, BMP_MOSI, BMP_MISO,  BMP_SCK);
+Adafruit_BMP280 bmp(BMP_CS); // hardware SPI
 
 float thetaG = 0;
 float phiG = 0;
@@ -28,10 +45,18 @@ float thetaA = 0;
 float phiA = 0;
 float theta = 0;
 float phi = 0;
-
 float dt = 0;
+int currAltitude = 0;
+int prevAltitude = 0;
 unsigned long prevMillis;
-States currState;
+uint8_t currState;
+
+
+// Function Declarations
+bool detectLaunch(float currAltitude, float initialAltitude);
+bool detectApogee(float currAltitude, float prevAltitude);
+bool detectLanding(float currAltitude);
+void writeFile();
 
 /**************************************************************************/
 /*
@@ -51,6 +76,22 @@ void setup(void)
     while(1);
   }
 
+  Serial.println(F("BMP280 test"));
+
+   //if (!bmp.begin(BMP280_ADDRESS_ALT, BMP280_CHIPID)) {
+   if (!bmp.begin()) {
+     Serial.println(F("Could not find a valid BMP280 sensor, check wiring or "
+                       "try a different address!"));
+     while (1) delay(10);
+   }
+
+   /* Default settings from datasheet. */
+   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
+                   Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
+                   Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
+                   Adafruit_BMP280::FILTER_X16,      /* Filtering. */
+                   Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
+
   delay(1000);
 
   /* Display the current temperature */
@@ -62,6 +103,8 @@ void setup(void)
 
   bno.setExtCrystalUse(true);
   bno.setMode(OPERATION_MODE_ACCGYRO);
+
+  // need to create state machine object, also keeps track of currState
   currState = States::IDLE;
 
   // Serial.println("Calibration status values: 0=uncalibrated, 3=fully calibrated");
@@ -71,33 +114,6 @@ void setup(void)
 
 void loop(void)
 {
-  switch(currState)
-  {
-    case States::IDLE:
-    {
-      // code
-      break;
-    }
-    case States::ASCENT:
-    {
-      // code
-      break;
-    }
-    case States::DESCENT:
-    {
-      // code
-      break;
-    }
-    case States::RECOVERY:
-    {
-      // code
-      break;
-    }
-    default:
-    {
-      break;
-    }
-  }
   // Possible vector values can be:
   // - VECTOR_ACCELEROMETER - m/s^2
   // - VECTOR_MAGNETOMETER  - uT
@@ -160,5 +176,88 @@ void loop(void)
   // Serial.print(" Mag=");
   // Serial.println(mag, DEC);
 
+  Serial.print(F("Temperature = "));
+  Serial.print(bmp.readTemperature());
+  Serial.println(" *C");
+
+  Serial.print(F("Pressure = "));
+  Serial.print(bmp.readPressure());
+  Serial.println(" Pa");
+
+  Serial.print(F("Approx altitude = "));
+  Serial.print(bmp.readAltitude(1013.25)); /* Adjusted to local forecast! */
+  currAltitude = bmp.readAltitude(1013.25);
+  Serial.println(" m");
+
+  Serial.println();
+
   delay(BNO055_SAMPLERATE_DELAY_MS);
+
+  switch(currState)
+  {
+    case States::IDLE:
+    {
+      // need to read sensor information from BPM280 altitude
+      float fakeVal1, fakeVal2;
+      currState = (detectLaunch(fakeVal1, fakeVal2)) ? States::ASCENT : States::IDLE;
+      break;
+    }
+    case States::ASCENT:
+    {
+      float prevAltitude;
+      currState = (detectApogee(currAltitude, prevAltitude)) ? States::ASCENT : States::IDLE;
+      break;
+    }
+    case States::DESCENT:
+    {
+      detectLanding(currAltitude);
+      break;
+    }
+    case States::RECOVERY:
+    {
+      writeFile();      
+      break;
+    }
+    default:
+    {
+      break;
+    }
+  }
+
+}
+
+bool detectLaunch(float currAltitude, float initialAltitude){
+  // if passed 10 meter threshold, then rocket has launched
+  if ((currAltitude - initialAltitude) > 10){
+    return true;
+  }
+
+  return false;
+}
+
+bool detectApogee(float currAltitude, float prevAltitude){
+  // if decreasing after launch, apogee is reached or rocket went wrong
+  if (currAltitude > prevAltitude){
+
+    // fire parachute
+    // turn pin on
+    Serial.println("Apogee detected. Firing Parachutes.");
+    return true;
+  }
+
+  return false;
+}
+
+bool detectLanding(float currAltitude){
+
+  // if altitude is the same altitude for like 10 seconds you landed
+
+  Serial.println("Landing Detected");
+  return false;
+
+}
+
+void writeFile(){
+
+  Serial.println("Writing to file");
 }
