@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.module": "php",
+        "string": "cpp",
+        "initializer_list": "cpp"
+    }
+}
