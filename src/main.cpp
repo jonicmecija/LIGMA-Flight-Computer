@@ -50,17 +50,19 @@ int setAltitudeFlag = LOW;
 float thresholdAltitude = 0.20;
 float initialPressure = 0;
 float initialAltitude = 0;
-int currAltitude = 0;
 int prevAltitude = 0;
 int counter = 0;
 
 //detect apogee vars
 float maxAltitude = 0;
-float apogeeDetectAltitude = 0.05;
+float apogeeDetectAltitude = 0.2;
+
+//detect landing
+int landCounter = 0;
 
 // Function Declarations
 bool detectLaunch(float currAltitude);
-bool detectApogee();
+bool detectApogee(float currAltitude);
 bool detectLanding(float currAltitude);
 void writeFile();
 void printData(Adafruit_BNO055& bno, Adafruit_BMP280& bmp);
@@ -150,6 +152,8 @@ void loop(void)
   {
     case States::IDLE:
     {
+      Serial.println("IDLE STATE");
+
       // need to read sensor information from BPM280 altitude
       // initialAltitude = bmp.readAltitude(1013.25)
 
@@ -164,19 +168,21 @@ void loop(void)
     }
     case States::ASCENT:
     {
-      Serial.println("in ascent state");
+      Serial.println("ASCENT STATE");
       // float prevAltitude;
-      currState = (detectApogee()) ? States::DESCENT : States::ASCENT;
+      currState = (detectApogee(currAltitude)) ? States::DESCENT : States::ASCENT;
       break;
     }
     case States::DESCENT:
     {
-      Serial.println("in descent state");
-      // detectLanding(currAltitude);
+      Serial.println("DESCENT STATE");
+      currState = (detectLanding(currAltitude)) ? States::RECOVERY : States::DESCENT;
       break;
     }
     case States::RECOVERY:
     {
+      Serial.println("RECOVERY STATE");
+
       // writeFile();      
       break;
     }
@@ -291,12 +297,18 @@ bool detectLaunch(float currAltitude){
   return false;
 }
 
-bool detectApogee(){
+bool detectApogee(float currAltitude){
   // if decreasing after launch, apogee is reached or rocket went wrong
   // set max altitude
 
   
   if (maxAltitude - currAltitude > apogeeDetectAltitude){
+    Serial.print("max altitude: ");
+    Serial.println(maxAltitude);
+    Serial.print("curr altitude: ");
+    Serial.println(currAltitude);
+    Serial.print("max - curr: ");
+    Serial.println(maxAltitude - currAltitude);
 
     // fire parachute
     // turn pin on
@@ -311,7 +323,19 @@ bool detectLanding(float currAltitude){
 
   // if altitude is the same alti tude for like 10 seconds you landed
 
-  Serial.println("Landing Detected");
+  // currAltitude has been less than 10m for 20 counts
+  if (landCounter > 20){
+    Serial.println("Landing Detected!");
+    return true;
+  }
+
+  // if curr altitude is less than 0.5m, wait till counter gets to 20
+  else if (currAltitude < 0.05){
+    Serial.print("count: ");
+    Serial.println(landCounter);
+    landCounter += 1;
+  }
+
   return false;
 
 }
