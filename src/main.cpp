@@ -47,12 +47,12 @@ uint8_t currState;
 
 // Detect Launch vars
 int setAltitudeFlag = LOW;
-float thresholdAltitude = 5;
+float thresholdAltitude = 0.20;
 float initialPressure = 0;
 float initialAltitude = 0;
 int currAltitude = 0;
 int prevAltitude = 0;
-
+ int counter = 0;
 // Function Declarations
 bool detectLaunch(float currAltitude);
 bool detectApogee(float currAltitude, float prevAltitude);
@@ -110,8 +110,9 @@ void setup(void)
   currState = States::IDLE;
 
   // Serial.println("Calibration status values: 0=uncalibrated, 3=fully calibrated");
-
+  delay(1000);
   prevMillis = millis();
+ 
 }
 
 void loop(void)
@@ -133,13 +134,19 @@ void loop(void)
     {
       // need to read sensor information from BPM280 altitude
       // initialAltitude = bmp.readAltitude(1013.25)
-      float currPressure = bmp.readPressure();
+
+      counter += 1;
+      float currPressure = bmp.readPressure() /100;
       float currAltitude = bmp.readAltitude(currPressure);
-      currState = (detectLaunch(currAltitude)) ? States::ASCENT : States::IDLE;
+      if (counter > 10){
+        currState = (detectLaunch(currAltitude)) ? States::ASCENT : States::IDLE;
+      }
+      
       break;
     }
     case States::ASCENT:
     {
+      Serial.println("in ascent state");
       // float prevAltitude;
       // currState = (detectApogee(currAltitude, prevAltitude)) ? States::ASCENT : States::IDLE;
       break;
@@ -229,33 +236,45 @@ void printData(Adafruit_BNO055 &bno, Adafruit_BMP280& bmp){
   // currAltitude = bmp.readAltitude(1013.25);
 
   Serial.println();
+
 }
 
 bool detectLaunch(float currAltitude){
   // blink LED every 0.5 seconds to show its in armed state
   
   // if initial altitude has not been set, set it then trigger flag
-  if (digitalRead(setAltitudeFlag) == LOW){
+  Serial.print("set altitude flag: ");
+  Serial.println(setAltitudeFlag);
+  if (setAltitudeFlag == LOW){
 
-    initialPressure = bmp.readPressure() / 100;
-    initialAltitude = bmp.readAltitude(initialPressure);
+    // initialPressure = bmp.readPressure() / 100;
+    initialAltitude = bmp.readAltitude(1013.25);
     setAltitudeFlag = HIGH;
-
+    // Serial.println(setAltitudeFlag);
     Serial.print("initial altitude set @ ");
     Serial.print(initialAltitude);
     Serial.println(" meters");
   }
   // if initial altitude is greater than -100 AND diff between currAlt and startingAlt is greater than threshold, you launched
-  else if (initialAltitude > -100 && currAltitude - initialAltitude > thresholdAltitude)
-  {
-    Serial.println("Launch detected");
-    return true;
+  else if (initialAltitude > -100){
+    currAltitude = bmp.readAltitude(1013.25) - initialAltitude;
+
+    Serial.println("** detect launch variables **");
+    Serial.print("Initial Altitude: "); Serial.println(initialAltitude);
+    // currAltitude = bmp.readAltitude()
+    Serial.print("Current Altitude: "); Serial.println(currAltitude);
+
+    if( currAltitude > thresholdAltitude){
+      Serial.println("Launch detected");
+      return true;
+    }
   }
   return false;
 }
 
 bool detectApogee(float currAltitude, float prevAltitude){
   // if decreasing after launch, apogee is reached or rocket went wrong
+  Serial.println("rocket ascending");
   if (currAltitude > prevAltitude){
 
     // fire parachute
