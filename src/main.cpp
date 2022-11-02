@@ -52,10 +52,15 @@ float initialPressure = 0;
 float initialAltitude = 0;
 int currAltitude = 0;
 int prevAltitude = 0;
- int counter = 0;
+int counter = 0;
+
+//detect apogee vars
+float maxAltitude = 0;
+float apogeeDetectAltitude = 0.05;
+
 // Function Declarations
 bool detectLaunch(float currAltitude);
-bool detectApogee(float currAltitude, float prevAltitude);
+bool detectApogee();
 bool detectLanding(float currAltitude);
 void writeFile();
 void printData(Adafruit_BNO055& bno, Adafruit_BMP280& bmp);
@@ -127,7 +132,20 @@ void loop(void)
 
   printData(bno, bmp);
   delay(BNO055_SAMPLERATE_DELAY_MS);
+  // float currPressure = bmp.readPressure() /100;
+  float currAltitude = bmp.readAltitude(1013.25) - initialAltitude;
 
+  
+
+  if(currAltitude > maxAltitude){
+    maxAltitude = currAltitude;
+  }
+  
+  Serial.print("max altitude: ");
+  Serial.println(maxAltitude);
+  Serial.print("current altitude: ");
+  Serial.println(currAltitude);
+  
   switch(currState)
   {
     case States::IDLE:
@@ -135,9 +153,9 @@ void loop(void)
       // need to read sensor information from BPM280 altitude
       // initialAltitude = bmp.readAltitude(1013.25)
 
+      // counter to read first read first 10 readings of barometric pressure sensor
       counter += 1;
-      float currPressure = bmp.readPressure() /100;
-      float currAltitude = bmp.readAltitude(currPressure);
+      
       if (counter > 10){
         currState = (detectLaunch(currAltitude)) ? States::ASCENT : States::IDLE;
       }
@@ -148,11 +166,12 @@ void loop(void)
     {
       Serial.println("in ascent state");
       // float prevAltitude;
-      // currState = (detectApogee(currAltitude, prevAltitude)) ? States::ASCENT : States::IDLE;
+      currState = (detectApogee()) ? States::DESCENT : States::ASCENT;
       break;
     }
     case States::DESCENT:
     {
+      Serial.println("in descent state");
       // detectLanding(currAltitude);
       break;
     }
@@ -272,10 +291,12 @@ bool detectLaunch(float currAltitude){
   return false;
 }
 
-bool detectApogee(float currAltitude, float prevAltitude){
+bool detectApogee(){
   // if decreasing after launch, apogee is reached or rocket went wrong
-  Serial.println("rocket ascending");
-  if (currAltitude > prevAltitude){
+  // set max altitude
+
+  
+  if (maxAltitude - currAltitude > apogeeDetectAltitude){
 
     // fire parachute
     // turn pin on
