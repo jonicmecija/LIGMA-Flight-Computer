@@ -6,14 +6,6 @@
 #include <Arduino.h>
 #include <SPI.h>
 
-/* BNO055 Connections for Teensy 4.1
-
-   Connect SCL to pin 19
-   Connect SDA to pin 18
-   Connect VDD to 3.3V DC
-   Connect GROUND to common ground
-*/
-
 enum States{
   IDLE = 0,
   ASCENT = 1,
@@ -67,11 +59,7 @@ bool detectLanding(float currAltitude);
 void writeFile();
 void printData(Adafruit_BNO055& bno, Adafruit_BMP280& bmp);
 
-/**************************************************************************/
-/*
-    Arduino setup function (automatically called at startup)
-*/
-/**************************************************************************/
+
 void setup(void)
 {
   Serial.begin(115200);
@@ -124,21 +112,10 @@ void setup(void)
 
 void loop(void)
 {
-  // Possible vector values can be:
-  // - VECTOR_ACCELEROMETER - m/s^2
-  // - VECTOR_MAGNETOMETER  - uT
-  // - VECTOR_GYROSCOPE     - rad/s
-  // - VECTOR_EULER         - degrees
-  // - VECTOR_LINEARACCEL   - m/s^2
-  // - VECTOR_GRAVITY       - m/s^2
-
   printData(bno, bmp);
   delay(BNO055_SAMPLERATE_DELAY_MS);
-  // float currPressure = bmp.readPressure() /100;
+
   float currAltitude = bmp.readAltitude(1013.25) - initialAltitude;
-
-  
-
   if(currAltitude > maxAltitude){
     maxAltitude = currAltitude;
   }
@@ -148,28 +125,22 @@ void loop(void)
   Serial.print("current altitude: ");
   Serial.println(currAltitude);
   
+  /* STATE MACHINE */
   switch(currState)
   {
     case States::IDLE:
     {
       Serial.println("IDLE STATE");
-
-      // need to read sensor information from BPM280 altitude
-      // initialAltitude = bmp.readAltitude(1013.25)
-
       // counter to read first read first 10 readings of barometric pressure sensor
       counter += 1;
-      
       if (counter > 10){
         currState = (detectLaunch(currAltitude)) ? States::ASCENT : States::IDLE;
       }
-      
       break;
     }
     case States::ASCENT:
     {
       Serial.println("ASCENT STATE");
-      // float prevAltitude;
       currState = (detectApogee(currAltitude)) ? States::DESCENT : States::ASCENT;
       break;
     }
@@ -182,8 +153,8 @@ void loop(void)
     case States::RECOVERY:
     {
       Serial.println("RECOVERY STATE");
-
       // writeFile();      
+      // blink LED slowly for recovery state
       break;
     }
     default:
@@ -195,7 +166,6 @@ void loop(void)
 }
 
 void printData(Adafruit_BNO055 &bno, Adafruit_BMP280& bmp){
-  
   // grab raw accel and gyro values
   imu::Vector<3> accel = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
   imu::Vector<3> gyro = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
@@ -258,8 +228,6 @@ void printData(Adafruit_BNO055 &bno, Adafruit_BMP280& bmp){
   Serial.print(",");
 
   Serial.print(bmp.readAltitude(1013.25)); /* Adjusted to local forecast! */
-  // currAltitude = bmp.readAltitude(1013.25);
-
   Serial.println();
 
 }
@@ -268,31 +236,26 @@ bool detectLaunch(float currAltitude){
   // blink LED every 0.5 seconds to show its in armed state
   
   // if initial altitude has not been set, set it then trigger flag
-  Serial.print("set altitude flag: ");
-  Serial.println(setAltitudeFlag);
   if (setAltitudeFlag == LOW){
-
-    // initialPressure = bmp.readPressure() / 100;
     initialAltitude = bmp.readAltitude(1013.25);
     setAltitudeFlag = HIGH;
-    // Serial.println(setAltitudeFlag);
     Serial.print("initial altitude set @ ");
     Serial.print(initialAltitude);
     Serial.println(" meters");
   }
+
   // if initial altitude is greater than -100 AND diff between currAlt and startingAlt is greater than threshold, you launched
   else if (initialAltitude > -100){
     currAltitude = bmp.readAltitude(1013.25) - initialAltitude;
-
-    Serial.println("** detect launch variables **");
-    Serial.print("Initial Altitude: "); Serial.println(initialAltitude);
-    // currAltitude = bmp.readAltitude()
-    Serial.print("Current Altitude: "); Serial.println(currAltitude);
 
     if( currAltitude > thresholdAltitude){
       Serial.println("Launch detected");
       return true;
     }
+    
+    Serial.println("** detect launch variables **");
+    Serial.print("Initial Altitude: "); Serial.println(initialAltitude);
+    Serial.print("Current Altitude: "); Serial.println(currAltitude);
   }
   return false;
 }
@@ -300,8 +263,6 @@ bool detectLaunch(float currAltitude){
 bool detectApogee(float currAltitude){
   // if decreasing after launch, apogee is reached or rocket went wrong
   // set max altitude
-
-  
   if (maxAltitude - currAltitude > apogeeDetectAltitude){
     Serial.print("max altitude: ");
     Serial.println(maxAltitude);
@@ -310,8 +271,7 @@ bool detectApogee(float currAltitude){
     Serial.print("max - curr: ");
     Serial.println(maxAltitude - currAltitude);
 
-    // fire parachute
-    // turn pin on
+    // fire parachute, turn pin on
     Serial.println("Apogee detected. Firing Parachutes.");
     return true;
   }
@@ -320,8 +280,7 @@ bool detectApogee(float currAltitude){
 }
 
 bool detectLanding(float currAltitude){
-
-  // if altitude is the same alti tude for like 10 seconds you landed
+  // if altitude is the same altitude for 10 seconds, rocket landed
 
   // currAltitude has been less than 10m for 20 counts
   if (landCounter > 20){
@@ -335,9 +294,7 @@ bool detectLanding(float currAltitude){
     Serial.println(landCounter);
     landCounter += 1;
   }
-
   return false;
-
 }
 
 void writeFile(){
