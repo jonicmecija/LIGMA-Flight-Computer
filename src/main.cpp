@@ -1,3 +1,11 @@
+/*!
+ *  @file main.cpp
+ *
+ *  This file contains the main logic for the LIGMA rocket flight computer.
+ *
+ *  Jonic Mecija
+ */
+
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
