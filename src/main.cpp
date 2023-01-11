@@ -5,6 +5,7 @@
 #include <Adafruit_BMP280.h>
 #include <Arduino.h>
 #include <SPI.h>
+#include <SD.h>
 
 enum States{
   IDLE = 0,
@@ -12,6 +13,11 @@ enum States{
   DESCENT = 2,
   RECOVERY = 3
 };
+
+/* Set the delay between fresh samples */
+const int chipSelect = BUILTIN_SDCARD;
+const char* fileName = "testFileName3.csv";
+#define LOGS_PER_SECOND 10 
 
 /* Set the delay between fresh samples */
 #define BNO055_SAMPLERATE_DELAY_MS (100)
@@ -34,7 +40,9 @@ float phiA = 0;
 float theta = 0;
 float phi = 0;
 float dt = 0;
-unsigned long prevMillis;
+unsigned long prevMillis = 0;
+unsigned long currMillis = 0;
+unsigned long initMillis = 0;
 uint8_t currState;
 
 // Detect Launch vars
@@ -91,6 +99,7 @@ void setup(void)
 
   delay(1000);
 
+  SD.begin(chipSelect);
   /* Display the current temperature */
   int8_t temp = bno.getTemp();
   Serial.print("Current Temperature: ");
@@ -106,15 +115,13 @@ void setup(void)
 
   // Serial.println("Calibration status values: 0=uncalibrated, 3=fully calibrated");
   delay(1000);
-  prevMillis = millis();
- 
+  currMillis = millis();
+  prevMillis = currMillis;
+  initMillis = currMillis;
 }
 
 void loop(void)
 {
-  printData(bno, bmp);
-  delay(BNO055_SAMPLERATE_DELAY_MS);
-
   float currAltitude = bmp.readAltitude(1013.25) - initialAltitude;
   if(currAltitude > maxAltitude){
     maxAltitude = currAltitude;
@@ -162,6 +169,14 @@ void loop(void)
       break;
     }
   }
+  if(currMillis - prevMillis >= 1000.00/LOGS_PER_SECOND){
+    // Serial.print((currTime-initialTime)/1000.00);
+    // Serial.print(" ");
+    // Serial.println(maxthermo.readThermocoupleTemperature());
+    printData(bno, bmp);
+    prevMillis = currMillis;
+  }
+  currMillis = millis();
 
 }
 
@@ -181,6 +196,21 @@ void printData(Adafruit_BNO055 &bno, Adafruit_BMP280& bmp){
 
   theta = (theta -  gyro.y() * dt) * 0.90 + thetaA * 0.1;
   phi = (phi + gyro.x() * dt) * 0.90 + phiA * 0.1;
+
+  String datastring = "";
+  datastring += String((currMillis-initMillis)/1000.00);
+  datastring += ",";
+  datastring += String(bmp.readTemperature());  
+
+  File dataFile = SD.open(fileName, FILE_WRITE);
+  
+  if (dataFile) {
+    dataFile.println(datastring);
+    dataFile.close();  
+    // Serial.println(datastring);
+  }else {
+    // Serial.println(fileName);
+  }
 
   /* Display the floating point data */
   Serial.print(-gyro.y());
@@ -297,7 +327,3 @@ bool detectLanding(float currAltitude){
   return false;
 }
 
-void writeFile(){
-
-  Serial.println("Writing to file");
-}
