@@ -6,8 +6,12 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <SD.h>
+#include <cmath>
 
-enum States{
+#define DEBUG_MODE 1 // do #if before every serial.print
+                     // then set this to 0 to disable the serial port.
+
+enum class States{
   IDLE = 0,
   ASCENT = 1,
   DESCENT = 2,
@@ -40,10 +44,14 @@ float phiA = 0;
 float theta = 0;
 float phi = 0;
 float dt = 0;
-unsigned long prevMillis = 0;
-unsigned long currMillis = 0;
-unsigned long initMillis = 0;
-uint8_t currState;
+uint32_t prevMillis = 0;
+uint32_t currMillis = 0;
+uint32_t initMillis = 0;
+States currState;
+
+// Filter vars
+float currAltitude_emaFiltered = 0;
+static uint16_t t_currAltitude_ema = 1; // data point
 
 // Detect Launch vars
 int setAltitudeFlag = LOW;
@@ -64,6 +72,9 @@ int landCounter = 0;
 bool detectLaunch(float currAltitude);
 bool detectApogee(float currAltitude);
 bool detectLanding(float currAltitude);
+void EMA1(float& ema, float newData, float smoothing, uint16_t& t_ema);
+void EMA1(float& ema, float newData, uint16_t timePeriod, uint16_t& t_ema);
+void DEMA(float& dema, float newData);
 void writeFile();
 void printData(Adafruit_BNO055& bno, Adafruit_BMP280& bmp);
 
@@ -126,12 +137,26 @@ void loop(void)
   if(currAltitude > maxAltitude){
     maxAltitude = currAltitude;
   }
-  
+
+#if DEBUG_MODE  
   Serial.print("max altitude: ");
   Serial.println(maxAltitude);
   Serial.print("current altitude: ");
   Serial.println(currAltitude);
+#endif
+
+  //////////////////////////
+  // Data filtering
   
+  EMA1(currAltitude_emaFiltered, currAltitude, 0.9f, t_currAltitude_ema);  
+  //EMA1(currAltitude_emaFiltered, currAltitude, static_cast<uint16_t>(3), t_currAltitude_ema);  // Omegalul
+#if DEBUG_MODE
+  Serial.print("current filtered altitude: ");
+  Serial.println(currAltitude_emaFiltered);
+#endif
+
+  /////////////////////////
+
   /* STATE MACHINE */
   switch(currState)
   {
@@ -327,3 +352,62 @@ bool detectLanding(float currAltitude){
   return false;
 }
 
+void EMA1(float& ema, float newData, float smoothing, uint16_t& t_ema)
+{
+  /*
+  Params:
+  float& ema:       Exponential moving average value computed repeatedly.
+  float newData:    New data coming from sensor.
+  float smoothing:  Smoothing constant factor -- 0 < beta < 1.
+                    The higher this is, the more weight is given to the 
+                    moving average and vice versa for the new data coming in.
+  uint16_t& t_ema:  Current data point.
+
+
+  Return via reference:
+  float& ema: this value is computed and updated repeatedly in the void loop()
+  */
+  ema = (smoothing*ema + (1-smoothing)*newData)/(1-pow(smoothing, t_ema));
+  t_ema = t_ema + 1;
+  /*
+  Notes:
+    -Bias Correction?
+
+  */
+}
+
+void EMA1(float& ema, float newData, uint16_t timePeriod, uint16_t& t_ema)
+{
+  /*
+  
+  Unlike the other EMA1 function, this function lets you determine your own time window
+  from which the smoothing constant is computed.
+
+  Params:
+  float& ema:           Exponential moving average value computed repeatedly
+  float newData:        New data coming from sensor
+  uint16_t timePeriod:  Time window of EMA. for eg., an 8-point time window
+                        will have a smoothing constant of 0.875.
+  uint16_t& t_ema:      Current data point.
+
+  Return via reference:
+  float& ema: this value is computed and updated repeatedly in the void loop()
+  
+  */
+  float smoothing = 1 - (1/timePeriod);
+  ema = (smoothing*ema + (1-smoothing)*newData)/(1-pow(smoothing, t_ema));
+  t_ema = t_ema + 1;
+}
+
+void DEMA(float& dema, float newData)
+{
+    /*
+  Params:
+  float& ema: Exponential moving average value computed repeatedly
+  float newData: new data coming from sensor
+  float smoothing: smoothing constant factor -- 0 < beta < 1
+  */
+  
+  ;
+
+}
