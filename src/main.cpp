@@ -33,6 +33,11 @@ const char* fileName = "testFileName3.csv";
 Adafruit_BNO055 bno(-1, 0x28);
 Adafruit_BMP280 bmp(BMP_CS); // hardware SPI
 
+byte start = 0;
+const int led_pin = 28;
+const int button_pin = 8;
+const int buzzer = 35;
+
 float thetaG = 0;
 float phiG = 0;
 float thetaA = 0;
@@ -72,7 +77,9 @@ void setup(void)
 {
   Serial.begin(115200);
   Serial.println("Orientation Sensor Raw Data Test"); Serial.println("");
-
+  pinMode(led_pin, OUTPUT); 
+  pinMode(button_pin, INPUT); 
+  pinMode(buzzer, OUTPUT);
   /* Initialise the sensor */
   if(!bno.begin())
   {
@@ -109,75 +116,89 @@ void setup(void)
 
   bno.setExtCrystalUse(true);
   bno.setMode(OPERATION_MODE_ACCGYRO);
-
-  // need to create state machine object, also keeps track of currState
   currState = States::IDLE;
 
-  // Serial.println("Calibration status values: 0=uncalibrated, 3=fully calibrated");
   delay(1000);
   currMillis = millis();
-  prevMillis = currMillis;
   initMillis = currMillis;
 }
 
 void loop(void)
 {
-  float currAltitude = bmp.readAltitude(1013.25) - initialAltitude;
-  if(currAltitude > maxAltitude){
-    maxAltitude = currAltitude;
-  }
-  
-  Serial.print("max altitude: ");
-  Serial.println(maxAltitude);
-  Serial.print("current altitude: ");
-  Serial.println(currAltitude);
-  
-  /* STATE MACHINE */
-  switch(currState)
-  {
-    case States::IDLE:
-    {
-      Serial.println("IDLE STATE");
-      // counter to read first read first 10 readings of barometric pressure sensor
-      counter += 1;
-      if (counter > 10){
-        currState = (detectLaunch(currAltitude)) ? States::ASCENT : States::IDLE;
-      }
-      break;
+  int button_state = digitalRead(button_pin);
+  if (button_state == HIGH) { 
+    start = 1;
+    for(int i = 0; i < 5; i++){
+      digitalWrite(led_pin, HIGH);
+      tone(buzzer, 1000);
+      delay(500);
+      digitalWrite(led_pin, LOW);
+      noTone(buzzer);
+      delay(500);
     }
-    case States::ASCENT:
-    {
-      Serial.println("ASCENT STATE");
-      currState = (detectApogee(currAltitude)) ? States::DESCENT : States::ASCENT;
-      break;
-    }
-    case States::DESCENT:
-    {
-      Serial.println("DESCENT STATE");
-      currState = (detectLanding(currAltitude)) ? States::RECOVERY : States::DESCENT;
-      break;
-    }
-    case States::RECOVERY:
-    {
-      Serial.println("RECOVERY STATE");
-      // writeFile();      
-      // blink LED slowly for recovery state
-      break;
-    }
-    default:
-    {
-      break;
-    }
-  }
-  if(currMillis - prevMillis >= 1000.00/LOGS_PER_SECOND){
-    // Serial.print((currTime-initialTime)/1000.00);
-    // Serial.print(" ");
-    // Serial.println(maxthermo.readThermocoupleTemperature());
-    printData(bno, bmp);
-    prevMillis = currMillis;
-  }
-  currMillis = millis();
+  } 
 
+  if(start){
+    // delay(100);
+    float currAltitude = bmp.readAltitude(1013.25) - initialAltitude;
+    if(currAltitude > maxAltitude){
+      maxAltitude = currAltitude;
+    }
+    
+    // Serial.print("max altitude: ");
+    // Serial.println(maxAltitude);
+    // Serial.print("current altitude: ");
+    // Serial.println(currAltitude);
+
+    if(currMillis - prevMillis >= 2000.00){
+      /* STATE MACHINE */
+      switch(currState)
+      {
+        case States::IDLE:
+        {
+          Serial.println("IDLE STATE");
+          // counter to read first read first 10 readings of barometric pressure sensor
+          counter += 1;
+          if (counter > 10){
+            currState = (detectLaunch(currAltitude)) ? States::ASCENT : States::IDLE;
+          }
+          break;
+        }
+        case States::ASCENT:
+        {
+          Serial.println("ASCENT STATE");
+          currState = (detectApogee(currAltitude)) ? States::DESCENT : States::ASCENT;
+          break;
+        }
+        case States::DESCENT:
+        {
+          Serial.println("DESCENT STATE");
+          currState = (detectLanding(currAltitude)) ? States::RECOVERY : States::DESCENT;
+          break;
+        }
+        case States::RECOVERY:
+        {
+          Serial.println("RECOVERY STATE");
+          // writeFile();      
+      // writeFile();      
+          // writeFile();      
+      // writeFile();      
+          // writeFile();      
+          // blink LED slowly for recovery state
+          break;
+        }
+        default:
+        {
+          break;
+        }
+      }
+      prevMillis = currMillis;
+      digitalWrite(led_pin, HIGH);
+    }else{
+      digitalWrite(led_pin, LOW);
+    }
+    currMillis = millis();
+  }
 }
 
 void printData(Adafruit_BNO055 &bno, Adafruit_BMP280& bmp){
@@ -263,8 +284,6 @@ void printData(Adafruit_BNO055 &bno, Adafruit_BMP280& bmp){
 }
 
 bool detectLaunch(float currAltitude){
-  // blink LED every 0.5 seconds to show its in armed state
-  
   // if initial altitude has not been set, set it then trigger flag
   if (setAltitudeFlag == LOW){
     initialAltitude = bmp.readAltitude(1013.25);
